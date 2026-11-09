@@ -1,0 +1,258 @@
+﻿# GG Orquestrador — Manifest de Automações
+#
+# Fonte primária: Windows Task Scheduler (LastRunTime + LastTaskResult)
+# Fonte secundária: log_path (opcional, pra extrair detalhes de erro)
+#
+# task_scheduler_name: nome exato registrado no Windows Task Scheduler
+# log_path: caminho do log (opcional — usado só pra enriquecer diagnóstico)
+# log_format: "python_logging" (YYYY-MM-DD HH:MM:SS,ms - msg) ou "bracket" ([YYYY-MM-DD HH:MM:SS] [LEVEL] msg) ou null
+# expected_schedule: descrição humana da frequência esperada (informativo)
+# max_silence_hours: se LastRunTime for mais antigo que isso, alerta SILENT
+# error_patterns: regex adicional pra procurar no log (além do LastTaskResult != 0)
+
+automations:
+
+  # --- C:\EMAILS AUTOMATICOS\ (Python legado) ---
+
+  - name: "Xfin Pessoal"
+    task_scheduler_name: "Relatorio Xfin GG"
+    log_path: "C:/EMAILS AUTOMATICOS/log_xfin.txt"
+    log_format: python_logging
+    expected_schedule: "diario 07:30"
+    max_silence_hours: 26
+    error_patterns: ["Erro geral", "Traceback", "ERROR"]
+    success_patterns: ["Relatorio enviado"]
+
+  - name: "Xfin GG Servicos"
+    task_scheduler_name: "Relatorio Xfin GG Servicos"
+    log_path: "C:/EMAILS AUTOMATICOS/log_xfin_gg.txt"
+    log_format: python_logging
+    expected_schedule: "diario 07:45"
+    max_silence_hours: 26
+    error_patterns: ["Erro geral", "Traceback", "ERROR"]
+    success_patterns: ["Relatorio GG enviado"]
+
+  - name: "Rotina Email (inbox GG)"
+    task_scheduler_name: "Rotina Email GG"
+    log_path: "C:/EMAILS AUTOMATICOS/log.txt"
+    log_format: null   # print()-based, sem timestamp estruturado
+    expected_schedule: "diario 08:00"
+    max_silence_hours: 26
+    error_patterns: ["Traceback", "Error", "ERRO"]
+
+  - name: "Monitoramento Vencimentos (Condominio Y:)"
+    task_scheduler_name: "Monitoramento Vencimentos GG"
+    log_path: "C:/EMAILS AUTOMATICOS/log_vencimentos.txt"
+    log_format: python_logging
+    expected_schedule: "diario 09:00"
+    max_silence_hours: 26
+    error_patterns: ["Erro geral", "Traceback", "ERROR"]
+    success_patterns: ["Alerta enviado", "Nenhum vencimento"]
+
+  - name: "Alertas Obrigacoes (Obsidian)"
+    task_scheduler_name: "Alertas Obrigacoes GG"
+    log_path: "C:/EMAILS AUTOMATICOS/log_alertas_obrigacoes.txt"
+    log_format: python_logging
+    expected_schedule: "varias vezes ao dia"
+    max_silence_hours: 26
+    error_patterns: ["Erro geral", "Traceback", "ERROR"]
+    success_patterns: ["Alerta enviado", "Nenhuma obrigacao"]
+
+  - name: "Lembrete UNIP"
+    task_scheduler_name: "Lembrete UNIP GG"
+    log_path: null   # print-based, sem log estruturado
+    log_format: null
+    expected_schedule: "dia 5 do mes"
+    max_silence_hours: 745   # ~31 dias
+    error_patterns: []
+
+  - name: "Lembrete Gerar Obrigacoes"
+    task_scheduler_name: "Lembrete Gerar Obrigacoes GG"
+    log_path: null
+    log_format: null
+    expected_schedule: "mensal"
+    max_silence_hours: 745
+    error_patterns: []
+
+  # --- Pastas proprias (Python novo) ---
+
+  - name: "GG Ads Agent (Google)"
+    task_scheduler_name: "GG Ads Agent"
+    log_path: "C:/Users/User/gg-ads-agent/gg_ads_agent.log"
+    log_format: bracket
+    expected_schedule: "seg + sex 10:00"
+    max_silence_hours: 96   # ~4 dias (cobre gap seg->sex)
+    error_patterns: ["Erro", "Traceback", "Exception"]
+    success_patterns: ["ANÁLISE COMPLETA"]
+
+  - name: "GG Meta Agent"
+    task_scheduler_name: "GG Meta Agent"
+    log_path: "C:/Users/User/gg-meta-agent/logs/gg_meta_agent.log"
+    log_format: bracket
+    expected_schedule: "seg + sex 10:00"
+    max_silence_hours: 96
+    error_patterns: ["\\[ERROR\\]", "Traceback", "Exception"]
+    success_patterns: ["E-mail enviado", "Tarefa criada no Todoist"]
+
+  - name: "GG PipeRun (Relatorio CRM)"
+    task_scheduler_name: "GG PipeRun - Relatorio Diario"
+    log_path: "C:/Users/User/GG PIPERUN/piperun_report.log"
+    log_format: bracket
+    expected_schedule: "seg-sex 08:00"
+    max_silence_hours: 74   # 3 dias (cobre fim de semana)
+    error_patterns: ["ERRO", "Traceback", "Exception"]
+    success_patterns: ["E-mail enviado"]
+
+  - name: "GG Contas a Pagar (Y: notifier)"
+    task_scheduler_name: "GG Contas a Pagar - Notificador Diario"
+    log_path: "C:/Users/User/GG CONTAS A PAGAR/notifier.log"
+    log_format: bracket
+    expected_schedule: "diario 09:00"
+    max_silence_hours: 26
+    error_patterns: ["ERRO", "Traceback", "Exception"]
+    success_patterns: ["E-mail enviado"]
+
+  - name: "GG Financeiro (Xfin) — Mensal Pessoal"
+    task_scheduler_name: "GG Financeiro - Analise Mensal Pessoal"
+    log_path: "C:/Users/User/XFIN/logs/gg_financeiro_pessoal.log"
+    log_format: python_logging
+    expected_schedule: "dia 10 do mes 08:00"
+    max_silence_hours: 745
+    error_patterns: ["ERROR", "Traceback", "Exception"]
+    success_patterns: ["Analise mensal enviada"]
+
+  - name: "GG Financeiro (Xfin) — Mensal GG"
+    task_scheduler_name: "GG Financeiro - Analise Mensal GG"
+    log_path: "C:/Users/User/XFIN/logs/gg_financeiro_gg.log"
+    log_format: python_logging
+    expected_schedule: "dia 10 do mes 08:15"
+    max_silence_hours: 745
+    error_patterns: ["ERROR", "Traceback", "Exception"]
+    success_patterns: ["Analise mensal enviada"]
+
+  - name: "GG Email Morning (auto-reply + log Excel)"
+    task_scheduler_name: "GG Email Morning"
+    log_path: "C:/Users/User/GG EMAIL MORNING/email_morning.log"
+    log_format: bracket
+    expected_schedule: "ao logon (diario)"
+    max_silence_hours: 36
+    error_patterns: ["ERRO", "Traceback", "Exception", "Falha no login"]
+    success_patterns: ["Concluído", "Nenhum e-mail novo"]
+
+  - name: "LucroX (Planejamento Estrategico)"
+    task_scheduler_name: "LUCROX_Scraper"
+    log_path: "C:/Users/User/LUCROX/logs/task_scheduler.log"
+    log_format: null   # log tipo "[data hora] mensagem", sem timestamp estruturado padrao
+    expected_schedule: "ultimo dia util do mes 11:00"
+    max_silence_hours: 800   # ~33 dias (cobre ate o ultimo dia util do mes seguinte)
+    error_patterns: ["Traceback", "ERROR", "Exception", "PermissionError"]
+    success_patterns: ["E-mail enviado", "Concluido", "Concluído"]
+
+  - name: "GG Situacao Fiscal (RFB/PGFN)"
+    task_scheduler_name: "GG - Situacao Fiscal Mensal"
+    log_path: "C:/Users/User/.claude/projects/SITUACAO FISCAL RFB E PGFN/saida/agendador.log"
+    log_format: python_logging   # "YYYY-MM-DD HH:MM:SS  msg" (sem ms)
+    expected_schedule: "dia 15 do mes 08:00"
+    max_silence_hours: 745
+    error_patterns: ["ERRO:", "AVISO", "Clientes: 0\\b", "Exception"]   # "ERRO:" com dois-pontos p/ nao casar "erros: 0"
+    success_patterns: ["OK — gerados: [1-9]"]
+
+  # --- Outros ---
+
+  - name: "Rotina Diaria Emails (Node)"
+    task_scheduler_name: "RotinaDiariaEmails"
+    log_path: "C:/Users/User/email_reader/log_erro.txt"
+    log_format: null
+    expected_schedule: "diario 11:00"
+    max_silence_hours: 26
+    error_patterns: ["Erro:", "AUTHENTICATIONFAILED"]
+
+  # 'Filtrar Vencimentos n8n' desativado em 2026-07-23 (n8n aposentado, task disabled no Task Scheduler).
+  # Arquivos preservados em C:\Users\User\.n8n-files\ caso um dia precise resgatar.
+
+# ---------------------------------------------------------------------------
+# AGENTES CLAUDE CODE REATIVOS
+# Não são monitorados pelo orquestrador (sem Task Scheduler).
+# Documentados aqui para referência do ecossistema completo.
+# ---------------------------------------------------------------------------
+
+agents:
+
+  - name: "gg-ads"
+    model: opus
+    arquivo: "C:/Users/User/.claude/agents/GG-ads.md"
+    tipo: reativo
+    escopo: "Google Ads + META Ads — criação, monitoramento, criativos"
+
+  - name: "gg-obrigacoes"
+    model: opus
+    arquivo: "C:/Users/User/.claude/agents/gg-obrigacoes.md"
+    tipo: reativo + routine
+    escopo: "Obrigações fiscais — DAS, DCTF, EFD-Reinf, vencimentos"
+    routine: "trig_01SSwPYjKQ18FUFtMdaoRHip (seg-sex 10h SP)"
+
+  - name: "gg-fiscal"
+    model: opus
+    arquivo: "C:/Users/User/.claude/agents/gg-fiscal.md"
+    tipo: reativo
+    escopo: "Tributação, retenções em NF, apuração, CNAE"
+
+  - name: "gg-social-post"
+    model: sonnet
+    arquivo: "C:/Users/User/.claude/agents/gg-social-post.md"
+    tipo: reativo + routine
+    escopo: "Publicador Instagram GG via Meta Graph API"
+    routine: "trig_01HTUTm6G7GMoTZHQ2zJHsD7 (seg/qua/sex 11h BRT)"
+
+  - name: "gg-vendas-digital"
+    model: opus
+    arquivo: "C:/Users/User/.claude/agents/gg-vendas-digital.md"
+    tipo: reativo
+    escopo: "CRO, landing pages, ManyChat, análise de conversão"
+
+  - name: "gg-financeiro"
+    model: opus
+    arquivo: "C:/Users/User/.claude/agents/gg-financeiro.md"
+    tipo: reativo + routine
+    escopo: "Financeiro GG + pessoal via API Xfin"
+    routine: "CLI mensal dia 10 (Task Scheduler local)"
+
+  - name: "gg-onboarding"
+    model: opus
+    arquivo: "C:/Users/User/.claude/agents/gg-onboarding.md"
+    tipo: reativo
+    escopo: "Implantação de novos clientes — 6 etapas + atualiza planilha"
+    script: "C:/Users/User/GG ONBOARDING/update_onboarding.py"
+    planilha: "//GG_SERVIDOR/CLIENTES CONTABILIDADE/OPERACIONAL/ONBOARDING IMPLANTAÇÃO/GG_Clientes_Onboarding.xlsx"
+
+# ---------------------------------------------------------------------------
+# WORKFLOWS N8N (Hostinger — https://automacao.ggservicodecontabilidade.com.br)
+# Rodam no servidor n8n, fora do Task Scheduler: o script ainda NAO monitora
+# esta secao (ele so le "automations"). Documentados aqui para o ecossistema.
+# Status/erros: n8n > Executions do workflow; resultado de cada post fica na
+# planilha Google "Postagem Google" (colunas status / publicado_em / Post_id / erro).
+# ---------------------------------------------------------------------------
+
+workflows_n8n:
+
+  - name: "GMB — Gerar Post Semanal (Claude)"
+    n8n_workflow: "GG - Google Meu Negocio - Gerar Post Semanal (Claude)"
+    n8n_id: "9jjnvIIy3VvUWNrv"
+    expected_schedule: "seg 07:45"
+    escopo: "Claude (API Anthropic + pesquisa web) escreve o post semanal do Perfil da Empresa no Google e grava na planilha 'Postagem Google' ja como Aprovado (100% automatico, sem revisao). Falha -> linha com status Erro na planilha."
+    criado_em: "2026-11-09"
+    substitui: "tarefa agendada Claude trig_01QLupfN4z7N8drVH732EdBK (desativada em 2026-11-09)"
+
+  - name: "GMB — Publicar via Sheets"
+    n8n_workflow: "GG - Google Meu Negocio - Publicar via Sheets"
+    n8n_id: "m1lCCAJeWua9Ifh2"
+    expected_schedule: "seg-sex 10:00 e 16:00"
+    escopo: "Le a planilha 'Postagem Google' (status Aprovado), publica 1 post por vez no perfil 'GG Contabilidade' (botao Saiba mais -> home), marca Publicado/Erro na planilha e envia e-mail com o texto publicado para rodolfo@ggservicodecontabilidade.com.br."
+    planilha: "https://docs.google.com/spreadsheets/d/16sgnS4uAefuvjIMNyz4KDl6Y9Ocxi128qMGB_YBiJcA"
+    criado_em: "2026-11-09"
+
+  - name: "GMB — Post Semanal (webhook, plano B)"
+    n8n_workflow: "GG - Google Meu Negocio - Post Semanal"
+    n8n_id: "nF43b0kSw3zKw6K2"
+    expected_schedule: "sob demanda (POST /webhook/gmb-post com Header Auth)"
+    escopo: "Publicacao manual de um post via webhook (campo caption)."
