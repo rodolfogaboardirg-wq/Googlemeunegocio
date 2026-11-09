@@ -1,0 +1,134 @@
+{
+  "name": "GG - Google Meu Negocio - Gerar Post Semanal (Claude)",
+  "nodes": [
+    {
+      "name": "Segunda 7h45",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "45 7 * * 1"}]}}
+    },
+    {
+      "name": "Ler histórico de posts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [220, 0],
+      "alwaysOutputData": true,
+      "credentials": {"googleSheetsOAuth2Api": {"name": "Google Sheets account 2"}},
+      "parameters": {
+        "documentId": {"__rl": true, "mode": "url", "value": "https://docs.google.com/spreadsheets/d/16sgnS4uAefuvjIMNyz4KDl6Y9Ocxi128qMGB_YBiJcA/edit", "cachedResultName": "Postagem Google"},
+        "sheetName": {"__rl": true, "mode": "id", "value": "791784225", "cachedResultName": "Planilha1"},
+        "options": {}
+      }
+    },
+    {
+      "name": "Montar pedido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "const fixos = ['Troca de contador','Abertura de empresa com honorários zero','Simples Nacional / regime tributário','Prazo de cancelamento das opções do Simples 2027 e IBS/CBS','Fim da escala 6x1','13º salário: prazos das parcelas'];\nconst daPlanilha = $input.all().map(i => i.json.titulo).filter(Boolean);\nconst historico = [...new Set([...fixos, ...daPlanilha])].slice(-30);\nconst hoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });\nconst prompt = `Hoje é ${hoje}. Você escreve o post semanal do Perfil da Empresa no Google (Google Meu Negócio) da GG Serviços Contábeis (\"GG Contabilidade\"), escritório de contabilidade na Vila Leopoldina, São Paulo, que atende pequenas e médias empresas.\n\n1. Use a pesquisa na web para escolher UM tema atual e útil para donos de PMEs no Brasil nesta semana: prazos fiscais, trabalhistas ou previdenciários próximos, mudanças de lei, Reforma Tributária (IBS/CBS), Simples Nacional, folha de pagamento, abertura ou regularização de empresa. Prefira prazos dos próximos 30 dias.\n2. Confirme em fonte confiável (gov.br, Receita Federal, Planalto ou veículo especializado) todas as datas, valores e regras que citar. Se não conseguir confirmar um dado, não use esse dado. Na dúvida, escolha um tema sem datas.\n3. Não repita estes temas já publicados:\n- ${historico.join('\\n- ')}\n\nFormato do texto:\n- Português do Brasil, tom próximo e profissional, de 600 a 1.200 caracteres.\n- 3 parágrafos curtos separados por linha em branco. O 1º abre com uma pergunta ao dono da empresa e pode ter no máximo 1 emoji. O 2º traz a informação concreta (datas, regras). O 3º diz como a GG ajuda, menciona \"aqui na GG, na Vila Leopoldina\" e termina com \"Fale com a gente.\"\n- Sem hashtags, sem links, sem telefone, sem e-mail, sem markdown, sem citar as fontes no texto.\n\nResponda no final com APENAS um objeto JSON válido, sem nada depois, neste formato:\n{\"titulo\": \"título curto do tema, até 60 caracteres\", \"texto\": \"texto completo do post, com \\\\n entre os parágrafos\"}`;\nreturn [{ json: { prompt } }];"
+      }
+    },
+    {
+      "name": "Claude - Escrever post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "onError": "continueErrorOutput",
+      "credentials": {"anthropicApi": {"name": "Anthropic account"}},
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "anthropic-version", "value": "2023-06-01"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-5-5', max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }], messages: [{ role: 'user', content: $json.prompt }] }) }}",
+        "options": {"timeout": 180000}
+      }
+    },
+    {
+      "name": "Extrair e validar post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -80],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst txt = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('');\nconst m = txt.match(/\\{[\\s\\S]*\\}/g);\nif (!m) throw new Error('Resposta sem JSON: ' + txt.slice(0, 300));\nlet o;\ntry { o = JSON.parse(m[m.length - 1]); } catch (e) { throw new Error('JSON inválido: ' + m[m.length - 1].slice(0, 300)); }\nconst titulo = String(o.titulo || '').trim();\nconst texto = String(o.texto || '').replace(/\\r/g, '').replace(/\\\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim();\nif (!titulo || texto.length < 200) throw new Error('Post vazio ou curto demais');\nif (texto.length > 1500) throw new Error('Post com ' + texto.length + ' caracteres (máx. 1500)');\nif (/https?:\\/\\/|www\\.|#\\w/.test(texto)) throw new Error('Post contém link ou hashtag');\nreturn [{ json: { titulo, texto } }];"
+      }
+    },
+    {
+      "name": "Gravar como Aprovado",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1100, -80],
+      "credentials": {"googleSheetsOAuth2Api": {"name": "Google Sheets account 2"}},
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "mode": "url", "value": "https://docs.google.com/spreadsheets/d/16sgnS4uAefuvjIMNyz4KDl6Y9Ocxi128qMGB_YBiJcA/edit", "cachedResultName": "Postagem Google"},
+        "sheetName": {"__rl": true, "mode": "id", "value": "791784225", "cachedResultName": "Planilha1"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Data_post": "={{ $now.setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy') }}",
+            "titulo": "={{ $json.titulo }}",
+            "texto": "={{ $json.texto }}",
+            "status": "Aprovado",
+            "erro": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {"id": "Data_post", "displayName": "Data_post", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "titulo", "displayName": "titulo", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "texto", "displayName": "texto", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "status", "displayName": "status", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "erro", "displayName": "erro", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true}
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Registrar erro na planilha",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1100, 140],
+      "credentials": {"googleSheetsOAuth2Api": {"name": "Google Sheets account 2"}},
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "mode": "url", "value": "https://docs.google.com/spreadsheets/d/16sgnS4uAefuvjIMNyz4KDl6Y9Ocxi128qMGB_YBiJcA/edit", "cachedResultName": "Postagem Google"},
+        "sheetName": {"__rl": true, "mode": "id", "value": "791784225", "cachedResultName": "Planilha1"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Data_post": "={{ $now.setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy') }}",
+            "titulo": "(post não gerado)",
+            "texto": "",
+            "status": "Erro",
+            "erro": "={{ JSON.stringify($json.error || $json).slice(0, 400) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {"id": "Data_post", "displayName": "Data_post", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "titulo", "displayName": "titulo", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "texto", "displayName": "texto", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "status", "displayName": "status", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true},
+            {"id": "erro", "displayName": "erro", "type": "string", "display": true, "required": false, "defaultMatch": false, "canBeUsedToMatch": true}
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Segunda 7h45": {"main": [[{"node": "Ler histórico de posts", "type": "main", "index": 0}]]},
+    "Ler histórico de posts": {"main": [[{"node": "Montar pedido", "type": "main", "index": 0}]]},
+    "Montar pedido": {"main": [[{"node": "Claude - Escrever post", "type": "main", "index": 0}]]},
+    "Claude - Escrever post": {"main": [[{"node": "Extrair e validar post", "type": "main", "index": 0}], [{"node": "Registrar erro na planilha", "type": "main", "index": 0}]]},
+    "Extrair e validar post": {"main": [[{"node": "Gravar como Aprovado", "type": "main", "index": 0}], [{"node": "Registrar erro na planilha", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1", "timezone": "America/Sao_Paulo"}
+}
